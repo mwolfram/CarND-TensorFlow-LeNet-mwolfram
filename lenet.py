@@ -18,8 +18,86 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.layers import flatten
 
 
-EPOCHS = 10
+EPOCHS = 1
 BATCH_SIZE = 50
+
+def maxpool2d(x, k=2):
+    return tf.nn.max_pool(
+        x,
+        ksize=[1, k, k, 1],
+        strides=[1, k, k, 1],
+        padding='VALID')
+
+def linear(x, out_size, out_depth):
+    W = tf.Variable(tf.truncated_normal(shape=(out_size, out_depth), mean=0, stddev=0.1))
+    b = tf.Variable(tf.zeros(out_depth))
+    return tf.matmul(x, W) + b
+
+def linear_w_relu(x, out_size, out_depth):
+    W = tf.Variable(tf.truncated_normal(shape=(out_size, out_depth), mean=0, stddev=0.1))
+    b = tf.Variable(tf.zeros(out_depth))
+    return tf.nn.relu(tf.matmul(x, W) + b)
+
+def conv2d(x, filter_size, in_depth, out_depth, strides=1):
+    W = tf.Variable(tf.truncated_normal(shape=(filter_size, filter_size, in_depth, out_depth), mean=0, stddev=0.1))
+    b = tf.Variable(tf.zeros(out_depth))
+    return tf.nn.relu(tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='VALID') + b)
+
+def LeNet_Sample(x):
+    mu = 0.0
+    sigma = 0.1
+
+    # Bring image into shape and pad
+    x = tf.reshape(x, (-1, 28, 28, 1))
+    x = tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0]], mode="CONSTANT") 
+
+    # SOLUTION: Layer 1: Convolutional. Input = 32x32x1. Output = 28x28x6.
+    conv1_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 1, 6), mean = mu, stddev = sigma))
+    conv1_b = tf.Variable(tf.zeros(6))
+    conv1   = tf.nn.conv2d(x, conv1_W, strides=[1, 1, 1, 1], padding='VALID') + conv1_b
+
+    # SOLUTION: Activation.
+    conv1 = tf.nn.relu(conv1)
+
+    # SOLUTION: Pooling. Input = 28x28x6. Output = 14x14x6.
+    conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+    # SOLUTION: Layer 2: Convolutional. Output = 10x10x16.
+    conv2_W = tf.Variable(tf.truncated_normal(shape=(5, 5, 6, 16), mean = mu, stddev = sigma))
+    conv2_b = tf.Variable(tf.zeros(16))
+    conv2   = tf.nn.conv2d(conv1, conv2_W, strides=[1, 1, 1, 1], padding='VALID') + conv2_b
+
+    # SOLUTION: Activation.
+    conv2 = tf.nn.relu(conv2)
+
+    # SOLUTION: Pooling. Input = 10x10x16. Output = 5x5x16.
+    conv2 = tf.nn.max_pool(conv2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='VALID')
+
+    # SOLUTION: Flatten. Input = 5x5x16. Output = 400.
+    fc0   = flatten(conv2)
+
+    # SOLUTION: Layer 3: Fully Connected. Input = 400. Output = 120.
+    fc1_W = tf.Variable(tf.truncated_normal(shape=(400, 120), mean = mu, stddev = sigma))
+    fc1_b = tf.Variable(tf.zeros(120))
+    fc1   = tf.matmul(fc0, fc1_W) + fc1_b
+
+    # SOLUTION: Activation.
+    fc1    = tf.nn.relu(fc1)
+
+    # SOLUTION: Layer 4: Fully Connected. Input = 120. Output = 84.
+    fc2_W  = tf.Variable(tf.truncated_normal(shape=(120, 84), mean = mu, stddev = sigma))
+    fc2_b  = tf.Variable(tf.zeros(84))
+    fc2    = tf.matmul(fc1, fc2_W) + fc2_b
+
+    # SOLUTION: Activation.
+    fc2    = tf.nn.relu(fc2)
+
+    # SOLUTION: Layer 5: Fully Connected. Input = 84. Output = 10.
+    fc3_W  = tf.Variable(tf.truncated_normal(shape=(84, 10), mean = mu, stddev = sigma))
+    fc3_b  = tf.Variable(tf.zeros(10))
+    logits = tf.matmul(fc2, fc3_W) + fc3_b
+
+    return logits
 
 
 # LeNet architecture:
@@ -27,16 +105,40 @@ BATCH_SIZE = 50
 #
 # Don't worry about anything else in the file too much, all you have to do is
 # create the LeNet and return the result of the last fully connected layer.
-def LeNet(x):
-    # Reshape from 2D to 4D. This prepares the data for
-    # convolutional and pooling layers.
+def LeNet_Mine(x):
+
+    # Bring image into shape and pad
     x = tf.reshape(x, (-1, 28, 28, 1))
-    # Pad 0s to 32x32. Centers the digit further.
-    # Add 2 rows/columns on each side for height and width dimensions.
     x = tf.pad(x, [[0, 0], [2, 2], [2, 2], [0, 0]], mode="CONSTANT")
-    # TODO: Define the LeNet architecture.
-    # Return the result of the last fully connected layer.
-    return x
+    
+    # Conv Layer 1 and activation
+    conv1 = conv2d(x, 5, 1, 6)
+
+    # Max-Pool Conv1
+    conv1 = maxpool2d(conv1) 
+    
+    # Conv Layer 2 and activation
+    conv2 = conv2d(conv1, 5, 6, 16)
+    conv2 = maxpool2d(conv2)
+
+    # Flatten to get 400 outputs
+    flat0 = flatten(conv2)
+
+    # Fully connected layer with 120 outputs
+    flat1 = linear_w_relu(flat0, 400, 120)
+
+    # Fully connected layer with 84 outputs
+    flat2 = linear_w_relu(flat1, 120, 84)
+
+    # Fuly connected layer with 10 outputs
+    flat3 = linear(flat2, 84, 10)
+    
+    return flat3
+
+
+def LeNet(x):
+    return LeNet_Mine(x)
+    #return LeNet_Sample(x)
 
 
 # MNIST consists of 28x28x1, grayscale images
